@@ -1,0 +1,5 @@
+{
+  "name": "Motivational Content Automator",
+  "description": "An automated workflow tool to generate motivational financial tips, create visually appealing images with text overlays using Gemini, and provides strategies for full automation.",
+  "requestFramePermissions": []
+}
