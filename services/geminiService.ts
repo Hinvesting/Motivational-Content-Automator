@@ -2,8 +2,11 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { VideoPrompt, SceneCard, Strategy, ThumbnailData } from '../types';
 import { marked } from 'marked';
 
-// FIX: Adhering to the coding guidelines to use process.env.API_KEY directly.
-// This resolves the TypeScript error related to 'import.meta.env' and aligns with the project's API key handling strategy.
+// Per Gemini API guidelines, API key must come from process.env.API_KEY
+if (!process.env.API_KEY) {
+  throw new Error("API_KEY environment variable not set. Please refer to the setup instructions.");
+}
+
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateContent = async (type: 'quote' | 'tip' = 'quote'): Promise<string> => {
@@ -257,7 +260,8 @@ Ensure the 'textOverlay.content' for the three prompts, when combined, forms the
       }
     });
 
-    const jsonString = response.text;
+    // Trim whitespace from JSON string before parsing
+    const jsonString = response.text.trim();
     const prompts: VideoPrompt[] = JSON.parse(jsonString);
     return prompts;
 
@@ -327,7 +331,8 @@ The story must be compelling, logical, and respect all the core details provided
       }
     });
 
-    const jsonString = response.text;
+    // Trim whitespace from JSON string before parsing
+    const jsonString = response.text.trim();
     const result = JSON.parse(jsonString);
     return { thumbnailPrompt: result.thumbnailPrompt, scenes: result.scenes };
 
@@ -415,7 +420,8 @@ Return your response as a valid JSON array of objects. Each object must follow t
       },
     });
 
-    const jsonString = response.text;
+    // Trim whitespace from JSON string before parsing
+    const jsonString = response.text.trim();
     const strategies: { title: string; description: string }[] = JSON.parse(jsonString);
 
     // Convert markdown description to HTML
