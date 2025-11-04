@@ -1,9 +1,8 @@
-
 import React, { useState, useCallback } from 'react';
 import { generateVideoPrompts } from '../services/geminiService';
 import type { VideoPrompt } from '../types';
 import { Spinner } from './Spinner';
-import { SparklesIcon, VideoCameraIcon, ClipboardIcon, CheckIcon, PhotoIcon } from './Icons';
+import { SparklesIcon, VideoCameraIcon, ClipboardIcon, CheckIcon, XMarkIcon } from './Icons';
 
 interface VideoPromptGeneratorProps {
   quote: string;
@@ -30,6 +29,11 @@ export const VideoPromptGenerator: React.FC<VideoPromptGeneratorProps> = ({ quot
       setIsLoading(false);
     }
   }, [quote, image]);
+
+  const handleClear = () => {
+    setPrompts([]);
+    setError(null);
+  };
 
   if (!quote || !image) {
     return (
@@ -58,13 +62,23 @@ export const VideoPromptGenerator: React.FC<VideoPromptGeneratorProps> = ({ quot
                 <p className="text-md italic text-gray-300">"{quote}"</p>
             </div>
         </div>
-        <button
-          onClick={handleGeneratePrompts}
-          disabled={isLoading}
-          className="w-full flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500"
-        >
-          {isLoading ? <Spinner /> : <><SparklesIcon className="h-5 w-5 mr-2" /> Generate Prompts</>}
-        </button>
+        <div className="flex items-center gap-4">
+            <button
+            onClick={handleGeneratePrompts}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500"
+            >
+            {isLoading ? <Spinner /> : <><SparklesIcon className="h-5 w-5 mr-2" /> {prompts.length > 0 ? 'Regenerate Prompts' : 'Generate Prompts'}</>}
+            </button>
+            {prompts.length > 0 && !isLoading && (
+                 <button
+                    onClick={handleClear}
+                    className="flex-shrink-0 flex items-center justify-center px-4 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500"
+                >
+                    <XMarkIcon className="h-5 w-5" />
+                </button>
+            )}
+        </div>
       </div>
       
       {error && <p className="text-red-400 text-center">{error}</p>}

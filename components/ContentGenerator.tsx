@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { generateContent, generateImageWithQuote } from '../services/geminiService';
 import { Spinner } from './Spinner';
-import { SparklesIcon, PhotoIcon, SettingsIcon, EyeIcon } from './Icons';
+import { SparklesIcon, PhotoIcon, SettingsIcon, EyeIcon, ArrowPathIcon } from './Icons';
 import { ImageModal } from './ImageModal';
 import type { GeneratedImages } from '../App';
 
@@ -58,6 +57,12 @@ export const ContentGenerator: React.FC<ContentGeneratorProps> = ({ quote, setQu
       setIsLoadingImage(false);
     }
   }, [quote, aspectRatio, setGeneratedImages]);
+
+  const handleClear = () => {
+    setQuote('');
+    setGeneratedImages({ withOverlay: '', withoutOverlay: '' });
+    setError(null);
+  };
 
   useEffect(() => {
     if (!quote) {
@@ -165,20 +170,23 @@ export const ContentGenerator: React.FC<ContentGeneratorProps> = ({ quote, setQu
             <p className="text-gray-400 mb-4">
               Use the generated content to create a beautiful image with the text automatically overlaid.
             </p>
-            <button
-              onClick={handleGenerateImage}
-              disabled={!quote || isLoadingImage || isLoadingContent}
-              className="w-full flex items-center justify-center px-6 py-3 bg-teal-600 hover:bg-teal-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-teal-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500"
-            >
-              {isLoadingImage ? (
-                <Spinner />
-              ) : (
-                <>
-                  <PhotoIcon className="h-5 w-5 mr-2" />
-                  Generate Image
-                </>
-              )}
-            </button>
+             {imageUrl ? (
+               <button
+                onClick={handleClear}
+                className="w-full flex items-center justify-center px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500"
+              >
+                <ArrowPathIcon className="h-5 w-5 mr-2" />
+                Start Over
+              </button>
+            ) : (
+              <button
+                onClick={handleGenerateImage}
+                disabled={!quote || isLoadingImage || isLoadingContent}
+                className="w-full flex items-center justify-center px-6 py-3 bg-teal-600 hover:bg-teal-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-teal-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500"
+              >
+                {isLoadingImage ? <Spinner /> : <><PhotoIcon className="h-5 w-5 mr-2" /> Generate Image</>}
+              </button>
+            )}
           </div>
         </div>
 

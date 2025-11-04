@@ -1,5 +1,5 @@
 {
-  "name": "Motivational Content Automator",
-  "description": "An automated workflow tool to generate motivational financial tips, create visually appealing images with text overlays using Gemini, and provides strategies for full automation.",
+  "name": "AI Media Content Package Assembler",
+  "description": "An automated workflow tool to generate and assemble media content packages, including text, images, and video ideas using Gemini.",
   "requestFramePermissions": []
 }

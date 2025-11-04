@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { generateStoryElements, generateImageForScene } from '../services/geminiService';
 import type { SceneCard, ThumbnailData } from '../types';
 import { Spinner } from './Spinner';
-import { SparklesIcon, FilmIcon, TagIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon } from './Icons';
+import { FilmIcon, TagIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon, ArrowPathIcon } from './Icons';
 import { fileToBase64 } from '../utils/fileUtils';
 
 type Duration = 60 | 90 | 120 | 300;
@@ -113,6 +113,22 @@ export const StoryBoardGenerator: React.FC = () => {
     }
   }, [aspectRatio, characterImage]);
 
+  const handleClear = () => {
+    setTopic('');
+    setDuration(60);
+    setStoryStyle(storyStyles[0]);
+    setCharacterGender('female');
+    setCharacterImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setAspectRatio(aspectRatios[0]);
+    setScenes([]);
+    setThumbnail(null);
+    setError(null);
+    setGenerationStatus('');
+  };
+
 
   return (
     <div className="space-y-8">
@@ -196,14 +212,23 @@ export const StoryBoardGenerator: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="mt-6 pt-6 border-t border-gray-600">
+        <div className="mt-6 pt-6 border-t border-gray-600 flex items-center gap-4">
             <button
             onClick={handleGenerate}
             disabled={isLoading || !topic}
             className="w-full flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500"
             >
-            {isLoading ? <Spinner /> : <><FilmIcon className="h-5 w-5 mr-2" /> Generate Storyboard</>}
+            {isLoading ? <Spinner /> : <><FilmIcon className="h-5 w-5 mr-2" /> {scenes.length > 0 ? 'Regenerate Storyboard' : 'Generate Storyboard'}</>}
             </button>
+             {scenes.length > 0 && !isLoading && (
+                <button
+                    onClick={handleClear}
+                    className="flex-shrink-0 flex items-center justify-center px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500"
+                >
+                    <ArrowPathIcon className="h-5 w-5 mr-2" />
+                    Start Over
+                </button>
+            )}
         </div>
       </div>
 

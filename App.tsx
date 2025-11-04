@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { ContentGenerator } from './components/ContentGenerator';
 import { ImageEditor } from './components/ImageEditor';
@@ -51,7 +50,7 @@ const App: React.FC = () => {
             <div className="flex items-center space-x-3">
               <SparklesIcon className="h-8 w-8 text-indigo-400" />
               <h1 className="text-xl font-bold tracking-tight text-gray-200">
-                Motivational Content Automator
+                AI Media Content Package Assembler
               </h1>
             </div>
           </div>
@@ -94,8 +93,8 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="text-center py-4 text-gray-500 text-sm">
-        <p>Powered by Gemini API. Designed for creative automation.</p>
+      <footer className="text-center py-4 text-sm">
+        <p className="font-semibold text-yellow-400">Powered by New Money Millionaires L.L.C. with Gemini Intelligence &copy; 2025</p>
       </footer>
     </div>
   );
