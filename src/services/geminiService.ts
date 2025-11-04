@@ -14,7 +14,8 @@ async function callApi<T>(action: string, payload: unknown): Promise<T> {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || `API request failed with status ${response.status}`);
+      const errorMessage = errorData.details || errorData.error || `API request failed with status ${response.status}`;
+      throw new Error(errorMessage);
     }
 
     return await response.json();
