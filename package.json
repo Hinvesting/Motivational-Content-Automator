@@ -12,7 +12,8 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "@google/genai": "^1.27.0",
-    "marked": "^16.4.1"
+    "marked": "^16.4.1",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

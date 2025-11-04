@@ -2,8 +2,9 @@ import React, { useState, useCallback, useRef } from 'react';
 import { generateStoryElements, generateImageForScene } from '../services/geminiService';
 import type { SceneCard, ThumbnailData } from '../types';
 import { Spinner } from './Spinner';
-import { FilmIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon, ArrowPathIcon } from './Icons';
+import { FilmIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon, ArrowPathIcon, ArrowDownTrayIcon } from './Icons';
 import { fileToBase64 } from '../utils/fileUtils';
+import JSZip from 'jszip';
 
 type CharacterGender = 'male' | 'female';
 
@@ -23,6 +24,7 @@ export const StoryBoardGenerator: React.FC = () => {
   const [scenes, setScenes] = useState<SceneCard[]>([]);
   const [thumbnail, setThumbnail] = useState<ThumbnailData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isZipping, setIsZipping] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<string>('');
   
@@ -126,6 +128,49 @@ export const StoryBoardGenerator: React.FC = () => {
     setGenerationStatus('');
   };
 
+  const allImagesGenerated = thumbnail?.imageUrl && scenes.length > 0 && scenes.every(s => !!s.imageUrl);
+
+  const handleDownloadAllImages = async () => {
+    if (!allImagesGenerated) return;
+    setIsZipping(true);
+    setError(null);
+
+    try {
+      const zip = new JSZip();
+      
+      if (thumbnail?.imageUrl) {
+        const response = await fetch(thumbnail.imageUrl);
+        const blob = await response.blob();
+        zip.file('thumbnail.png', blob);
+      }
+
+      for (const scene of scenes) {
+        if (scene.imageUrl) {
+          const response = await fetch(scene.imageUrl);
+          const blob = await response.blob();
+          const sceneNumber = String(scene.sceneNumber).padStart(2, '0');
+          zip.file(`scene-${sceneNumber}.png`, blob);
+        }
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      const safeTopic = topic.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      link.download = `${safeTopic || 'storyboard'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+    } catch (err) {
+      setError('Failed to create ZIP file. Please try again.');
+      console.error(err);
+    } finally {
+      setIsZipping(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -247,14 +292,26 @@ export const StoryBoardGenerator: React.FC = () => {
 
       {(isLoading || scenes.length > 0 || thumbnail) && (
         <div className="mt-8">
-            <h3 className="text-2xl font-bold text-gray-100 mb-4">Storyboard</h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-100">Storyboard</h3>
+                {allImagesGenerated && (
+                    <button
+                        onClick={handleDownloadAllImages}
+                        disabled={isZipping}
+                        className="flex items-center justify-center px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-white font-semibold transition-all duration-200 disabled:bg-teal-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500"
+                    >
+                        {isZipping ? <Spinner size="small" /> : <ArrowDownTrayIcon className="h-5 w-5 mr-2" />}
+                        {isZipping ? 'Zipping...' : 'Download All (.zip)'}
+                    </button>
+                )}
+            </div>
              {isLoading && (
                 <div className="text-center text-gray-400 p-8">
                     <Spinner size="large" />
                     <p className="mt-4 text-lg">{generationStatus}</p>
                 </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                 {thumbnail && <ImageCard
                     title="Thumbnail"
                     prompt={thumbnail.prompt}
