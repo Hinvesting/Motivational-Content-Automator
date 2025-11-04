@@ -1,7 +1,17 @@
-
-export interface Strategy {
-  title: string;
+export interface SceneCard {
+  sceneNumber: number;
   description: string;
+  visuals: string;
+  dialogue: string;
+  sound: string;
+  imageUrl?: string | null;
+  isGeneratingImage?: boolean;
+}
+
+export interface ThumbnailData {
+  prompt: string;
+  imageUrl?: string | null;
+  isGeneratingImage?: boolean;
 }
 
 export interface VideoPrompt {
@@ -30,4 +40,9 @@ export interface VideoPrompt {
     music: string;
     sfx: string;
   };
+}
+
+export interface Strategy {
+  title: string;
+  description: string;
 }

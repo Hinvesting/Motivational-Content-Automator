@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import type { Strategy, VideoPrompt } from '../types';
+import type { VideoPrompt, SceneCard, Strategy, ThumbnailData } from '../types';
 import { marked } from 'marked';
 
 // IMPORTANT: Do not expose this key in a production environment.
@@ -144,41 +143,6 @@ export const editImage = async (base64Image: string, prompt: string): Promise<st
     }
 };
 
-export const getAutomationStrategies = async (): Promise<Strategy[]> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: `Based on a workflow that generates a financial quote, overlays it on a relevant image, and saves it to Google Drive, describe 3 distinct strategies to fully automate this process. The strategies MUST use only free tools, software, or custom-built solutions with generous free tiers. For each strategy, provide a title and a detailed description. Format the output as a valid JSON array of objects, where each object has "title" and "description" keys. The description should be a string containing markdown for formatting (e.g., using ### for subheadings, * for italics, and - for bullet points).`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            title: { type: Type.STRING },
-                            description: { type: Type.STRING }
-                        },
-                         required: ['title', 'description']
-                    }
-                }
-            }
-        });
-
-        const jsonString = response.text;
-        const strategies: Strategy[] = JSON.parse(jsonString);
-
-        // Parse markdown in descriptions to HTML
-        return strategies.map(strategy => ({
-            ...strategy,
-            description: marked(strategy.description) as string,
-        }));
-    } catch (error) {
-        console.error("Error getting automation strategies:", error);
-        throw new Error("Failed to communicate with Gemini API for strategies.");
-    }
-};
-
 export const generateVideoPrompts = async (quote: string, imageBase64?: string): Promise<VideoPrompt[]> => {
   try {
     const parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [];
@@ -306,5 +270,169 @@ Ensure the 'textOverlay.content' for the three prompts, when combined, forms the
   } catch (error) {
     console.error("Error getting video prompts:", error);
     throw new Error("Failed to communicate with Gemini API for video prompts.");
+  }
+};
+
+export const generateStoryElements = async (
+  topic: string,
+  duration: number,
+  numScenes: number,
+  style: string,
+  characterGender: 'male' | 'female',
+  hasCharacterImage: boolean,
+): Promise<{ thumbnailPrompt: string, scenes: Omit<SceneCard, 'sceneNumber'>[] }> => {
+  try {
+    const characterInfo = `The main character is ${characterGender}. ${hasCharacterImage ? 'The character should be consistent with the user-provided reference image.' : ''}`;
+
+    const prompt = `You are an expert screenwriter and cinematic storyteller. Your task is to generate a complete cinematic storyboard.
+
+**Core Details:**
+*   **Story Idea:** "${topic}"
+*   **Total Target Duration:** ${duration} seconds.
+*   **Story Style/Genre:** ${style}
+*   **Main Character:** ${characterInfo}
+
+**Your Task:**
+Generate a response as a single, valid JSON object with two top-level keys: "thumbnailPrompt" and "scenes".
+1.  **thumbnailPrompt**: A string containing a detailed, vivid prompt for generating a movie-poster-style thumbnail image for this story. It should capture the essence of the story's style and topic.
+2.  **scenes**: An array of exactly **${numScenes}** scene objects that tell a complete, cohesive story from beginning to end.
+
+Each scene object in the 'scenes' array must have the following structure:
+*   **description**: A one-sentence summary of what happens in this scene.
+*   **visuals**: A detailed prompt for an image generator. Describe the setting, camera work (movement, angle), lighting, and key actions. Be vivid and specific. If a character reference is used, ensure the description matches.
+*   **dialogue**: The dialogue or narration for this scene. Use "N/A" if there is no dialogue.
+*   **sound**: Describe the background music, foley, and any important sound effects.
+
+The story must be compelling, logical, and respect all the core details provided.
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            thumbnailPrompt: { type: Type.STRING },
+            scenes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  description: { type: Type.STRING },
+                  visuals: { type: Type.STRING },
+                  dialogue: { type: Type.STRING },
+                  sound: { type: Type.STRING },
+                },
+                required: ['description', 'visuals', 'dialogue', 'sound']
+              }
+            }
+          },
+          required: ['thumbnailPrompt', 'scenes']
+        }
+      }
+    });
+
+    const jsonString = response.text;
+    const result = JSON.parse(jsonString);
+    return { thumbnailPrompt: result.thumbnailPrompt, scenes: result.scenes };
+
+  } catch (error) {
+    console.error(`Error generating story elements:`, error);
+    throw new Error("Failed to communicate with Gemini API for story generation.");
+  }
+};
+
+export const generateImageForScene = async (
+  visualsPrompt: string, 
+  aspectRatio: string, 
+  characterImage?: string | null
+): Promise<string> => {
+  try {
+    const parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [];
+
+    let textPrompt = `Generate a high-quality, cinematic image with an aspect ratio of ${aspectRatio}. The scene should be: "${visualsPrompt}".`;
+
+    if (characterImage) {
+      const mimeType = characterImage.substring(characterImage.indexOf(":") + 1, characterImage.indexOf(";"));
+      const imageData = characterImage.split(',')[1];
+      parts.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: imageData,
+        },
+      });
+      textPrompt += " The main character in the generated image should be consistent with the reference image provided.";
+    }
+    
+    parts.push({ text: textPrompt });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        const base64ImageBytes: string = part.inlineData.data;
+        return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+      }
+    }
+
+    throw new Error("No image data found in the response.");
+  } catch (error) {
+    console.error("Error generating scene image:", error);
+    throw new Error("Failed to communicate with Gemini API for image generation.");
+  }
+};
+
+
+export const getAutomationStrategies = async (): Promise<Strategy[]> => {
+  try {
+    const prompt = `You are an expert in content creation workflows. Generate a list of 4 creative automation strategies for a 'Motivational Content Automator' application. The application already generates quotes, creates images with text overlays, edits images, and generates video prompts.
+
+For each strategy, provide a 'title' and a 'description'. The description should be a concise explanation of the strategy, formatted as markdown (e.g., use bullet points with *).
+
+Return your response as a valid JSON array of objects. Each object must follow this exact structure:
+{
+  "title": "A short, catchy title for the strategy",
+  "description": "A markdown-formatted description of the strategy."
+}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+            },
+            required: ['title', 'description'],
+          },
+        },
+      },
+    });
+
+    const jsonString = response.text;
+    const strategies: { title: string; description: string }[] = JSON.parse(jsonString);
+
+    // Convert markdown description to HTML
+    return strategies.map(strategy => ({
+      ...strategy,
+      description: marked(strategy.description) as string,
+    }));
+
+  } catch (error) {
+    console.error("Error getting automation strategies:", error);
+    throw new Error("Failed to communicate with Gemini API for automation strategies.");
   }
 };
