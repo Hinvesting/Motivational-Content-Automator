@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAutomationStrategies } from '../services/geminiService';
 import { Spinner } from './Spinner';

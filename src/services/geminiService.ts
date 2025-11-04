@@ -2,12 +2,13 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { VideoPrompt, SceneCard, Strategy, ThumbnailData } from '../types';
 import { marked } from 'marked';
 
-// Per Gemini API guidelines, API key must come from process.env.API_KEY
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set. Please refer to the setup instructions.");
+// Read API key from Vite environment variables (must be prefixed with VITE_)
+const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
+if (!apiKey) {
+  throw new Error("VITE_API_KEY environment variable not set. Please set it in your Vercel environment or a .env file.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey });
 
 export const generateContent = async (type: 'quote' | 'tip' = 'quote'): Promise<string> => {
   try {
