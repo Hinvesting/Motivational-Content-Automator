@@ -275,7 +275,6 @@ Ensure the 'textOverlay.content' for the three prompts, when combined, forms the
 
 export const generateStoryElements = async (
   topic: string,
-  duration: number,
   numScenes: number,
   style: string,
   characterGender: 'male' | 'female',
@@ -283,13 +282,13 @@ export const generateStoryElements = async (
 ): Promise<{ thumbnailPrompt: string, scenes: Omit<SceneCard, 'sceneNumber'>[] }> => {
   try {
     const characterInfo = `The main character is ${characterGender}. ${hasCharacterImage ? 'The character should be consistent with the user-provided reference image.' : ''}`;
+    const styleInfo = style ? `*   **Story Style/Genre:** ${style}` : '*   **Story Style/Genre:** To be determined by the AI based on the story idea.';
 
     const prompt = `You are an expert screenwriter and cinematic storyteller. Your task is to generate a complete cinematic storyboard.
 
 **Core Details:**
 *   **Story Idea:** "${topic}"
-*   **Total Target Duration:** ${duration} seconds.
-*   **Story Style/Genre:** ${style}
+${styleInfo}
 *   **Main Character:** ${characterInfo}
 
 **Your Task:**

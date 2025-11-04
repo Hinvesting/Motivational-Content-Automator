@@ -2,21 +2,19 @@ import React, { useState, useCallback, useRef } from 'react';
 import { generateStoryElements, generateImageForScene } from '../services/geminiService';
 import type { SceneCard, ThumbnailData } from '../types';
 import { Spinner } from './Spinner';
-import { FilmIcon, TagIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon, ArrowPathIcon } from './Icons';
+import { FilmIcon, UserCircleIcon, ArrowUpTrayIcon, PhotoIcon, XMarkIcon, ArrowPathIcon } from './Icons';
 import { fileToBase64 } from '../utils/fileUtils';
 
-type Duration = 60 | 90 | 120 | 300;
 type CharacterGender = 'male' | 'female';
 
-const storyStyles = ['Drama', 'Gritty', 'Inspirational', 'Action', 'Romance', 'Sci-Fi', 'Urban Drama', 'Historic', 'Comedy', 'Thriller'];
+const toneSuggestions = ['Cinematic', 'Humorous', 'Inspirational', 'Educational', 'Dramatic', 'Upbeat', 'Realistic'];
 const aspectRatios = ["16:9", "1:1", "9:16", "4:3", "3:4"];
-const sceneCounts: Record<Duration, number> = { 60: 5, 90: 7, 120: 10, 300: 20 };
 
 export const StoryBoardGenerator: React.FC = () => {
   // Form State
   const [topic, setTopic] = useState<string>('');
-  const [duration, setDuration] = useState<Duration>(60);
-  const [storyStyle, setStoryStyle] = useState<string>(storyStyles[0]);
+  const [sceneCount, setSceneCount] = useState<string>('7');
+  const [tone, setTone] = useState<string>('');
   const [characterGender, setCharacterGender] = useState<CharacterGender>('female');
   const [characterImage, setCharacterImage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>(aspectRatios[0]);
@@ -55,12 +53,11 @@ export const StoryBoardGenerator: React.FC = () => {
     setGenerationStatus('Crafting your story outline...');
 
     try {
-      const numScenes = sceneCounts[duration];
+      const numScenes = parseInt(sceneCount, 10) || 7;
       const { thumbnailPrompt, scenes: fetchedScenes } = await generateStoryElements(
         topic,
-        duration,
         numScenes,
-        storyStyle,
+        tone,
         characterGender,
         !!characterImage
       );
@@ -82,7 +79,7 @@ export const StoryBoardGenerator: React.FC = () => {
       setIsLoading(false);
       setGenerationStatus('');
     }
-  }, [topic, duration, storyStyle, characterGender, characterImage]);
+  }, [topic, sceneCount, tone, characterGender, characterImage]);
 
   const handleGenerateImage = useCallback(async (
     type: 'thumbnail' | 'scene', 
@@ -115,8 +112,8 @@ export const StoryBoardGenerator: React.FC = () => {
 
   const handleClear = () => {
     setTopic('');
-    setDuration(60);
-    setStoryStyle(storyStyles[0]);
+    setTone('');
+    setSceneCount('7');
     setCharacterGender('female');
     setCharacterImage(null);
     if (fileInputRef.current) {
@@ -155,62 +152,76 @@ export const StoryBoardGenerator: React.FC = () => {
                 />
             </div>
              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Story Style</label>
-                <div className="relative">
-                    <TagIcon className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <select value={storyStyle} onChange={e => setStoryStyle(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none">
-                        {storyStyles.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
+                <label htmlFor="scene-count" className="block text-sm font-medium text-gray-300 mb-2">Scene Count</label>
+                <input
+                    type="number"
+                    id="scene-count"
+                    value={sceneCount}
+                    onChange={(e) => setSceneCount(e.target.value)}
+                    min="1"
+                    max="30"
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                />
+                <p className="text-xs text-gray-400 mt-1">Applies when generating a new script from a topic.</p>
             </div>
-             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Target Duration</label>
-                <div className="flex bg-gray-700/80 p-1 rounded-lg">
-                    {(Object.keys(sceneCounts) as unknown as Duration[]).map(d => (
-                        <button key={d} onClick={() => setDuration(d)} className={`w-1/4 py-2 rounded-md font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 ${duration === d ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-600'}`}>
-                            {d}s
+            
+          </div>
+          {/* Column 2 */}
+          <div className="space-y-6">
+            <div>
+                <label htmlFor="tone" className="block text-sm font-medium text-gray-300 mb-2">Tone</label>
+                 <input
+                    type="text"
+                    id="tone"
+                    value={tone}
+                    onChange={(e) => setTone(e.target.value)}
+                    placeholder="e.g., Dark and Gritty"
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                />
+                <p className="text-xs text-gray-400 mt-1">Leave empty to let the AI determine the tone from the topic.</p>
+                 <div className="flex flex-wrap gap-2 mt-3">
+                    {toneSuggestions.map(suggestion => (
+                        <button key={suggestion} onClick={() => setTone(suggestion)} className="px-3 py-1 text-sm bg-gray-600 hover:bg-indigo-500 rounded-full transition-colors text-gray-200">
+                            {suggestion}
                         </button>
                     ))}
                 </div>
             </div>
           </div>
-          {/* Column 2 */}
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Main Character</label>
-                     <div className="flex bg-gray-700/80 p-1 rounded-lg">
-                        <button onClick={() => setCharacterGender('female')} className={`w-1/2 py-2 rounded-md font-semibold transition-colors duration-200 flex items-center justify-center ${characterGender === 'female' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-600'}`}>Female</button>
-                        <button onClick={() => setCharacterGender('male')} className={`w-1/2 py-2 rounded-md font-semibold transition-colors duration-200 flex items-center justify-center ${characterGender === 'male' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-600'}`}>Male</button>
-                    </div>
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Image Aspect Ratio</label>
-                     <div className="flex bg-gray-700/80 p-1 rounded-lg">
-                         <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value)} className="w-full px-2 py-2 bg-gray-700 border-none rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none text-center font-semibold">
-                            {aspectRatios.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                    </div>
+        </div>
+        <div className="mt-6 pt-6 border-t border-gray-600/50 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
+           <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Main Character</label>
+                 <div className="flex bg-gray-700/80 p-1 rounded-lg">
+                    <button onClick={() => setCharacterGender('female')} className={`w-1/2 py-2 rounded-md font-semibold transition-colors duration-200 flex items-center justify-center ${characterGender === 'female' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-600'}`}>Female</button>
+                    <button onClick={() => setCharacterGender('male')} className={`w-1/2 py-2 rounded-md font-semibold transition-colors duration-200 flex items-center justify-center ${characterGender === 'male' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-600'}`}>Male</button>
                 </div>
             </div>
             <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Image Aspect Ratio</label>
+                 <div className="bg-gray-700/80 p-1 rounded-lg">
+                     <select value={aspectRatio} onChange={e => setAspectRatio(e.target.value)} className="w-full px-2 py-2 bg-gray-800 border-none rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none text-center font-semibold">
+                        {aspectRatios.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                </div>
+            </div>
+             <div>
                  <label className="block text-sm font-medium text-gray-300 mb-2">Character Reference (Optional)</label>
                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-gray-700 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-500 overflow-hidden">
-                        {characterImage ? <img src={characterImage} alt="Character Reference" className="w-full h-full object-cover" /> : <UserCircleIcon className="h-10 w-10 text-gray-500" />}
+                    <div className="w-12 h-12 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-500 overflow-hidden">
+                        {characterImage ? <img src={characterImage} alt="Character Reference" className="w-full h-full object-cover" /> : <UserCircleIcon className="h-8 w-8 text-gray-500" />}
                     </div>
                     <div className="flex-grow">
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden"/>
-                        <button onClick={() => fileInputRef.current?.click()} className="w-full mb-2 flex items-center justify-center px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold transition-colors">
-                            <ArrowUpTrayIcon className="h-5 w-5 mr-2"/> Upload Image
+                        <button onClick={() => fileInputRef.current?.click()} className="w-full mb-1 flex items-center justify-center px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold text-sm transition-colors">
+                            <ArrowUpTrayIcon className="h-4 w-4 mr-2"/> Upload
                         </button>
-                         {characterImage && <button onClick={() => setCharacterImage(null)} className="w-full flex items-center justify-center px-4 py-1 text-sm bg-red-800 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors">
-                            <XMarkIcon className="h-4 w-4 mr-1"/> Remove
+                         {characterImage && <button onClick={() => setCharacterImage(null)} className="w-full flex items-center justify-center px-3 py-0.5 text-xs bg-red-800 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors">
+                            <XMarkIcon className="h-3 w-3 mr-1"/> Remove
                         </button>}
                     </div>
                  </div>
             </div>
-          </div>
         </div>
         <div className="mt-6 pt-6 border-t border-gray-600 flex items-center gap-4">
             <button
