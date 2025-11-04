@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 
 // Serverless handler for Vercel. Reads secret from process.env.GENAI_API_KEY
@@ -11,12 +10,90 @@ if (!apiKey) {
 
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-const jsonResponse = (res: VercelResponse, status: number, payload: any) => {
-  res.status(status).setHeader('Content-Type', 'application/json');
-  res.send(JSON.stringify(payload));
+const jsonResponse = (res: any, status: number, payload: any) => {
+  // Try to work with both Vercel response objects and plain Node responses
+  if (typeof res.status === 'function') {
+    res.status(status).setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(payload));
+    return;
+  }
+  res.statusCode = status;
+  if (typeof res.setHeader === 'function') res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(payload));
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+// Lightweight in-memory rate limiter (per-IP token bucket)
+const rateLimitMap = new Map<string, { tokens: number; lastRefill: number }>();
+const RATE_LIMIT_CAPACITY = 60; // tokens
+const RATE_LIMIT_REFILL_PER_SEC = 60 / 60; // refill 1 token/sec (~60 tokens per minute)
+
+const getIp = (req: any) => {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown';
+};
+
+const allowRequest = (ip: string, cost = 1) => {
+  const now = Date.now() / 1000;
+  const bucket = rateLimitMap.get(ip) || { tokens: RATE_LIMIT_CAPACITY, lastRefill: now };
+  const elapsed = Math.max(0, now - bucket.lastRefill);
+  const refill = elapsed * RATE_LIMIT_REFILL_PER_SEC;
+  bucket.tokens = Math.min(RATE_LIMIT_CAPACITY, bucket.tokens + refill);
+  bucket.lastRefill = now;
+  if (bucket.tokens >= cost) {
+    bucket.tokens -= cost;
+    rateLimitMap.set(ip, bucket);
+    return true;
+  }
+  rateLimitMap.set(ip, bucket);
+  return false;
+};
+
+// Simple payload validators per action
+const validatePayload = (action: string, payload: any) => {
+  if (!payload) return null; // some actions accept empty payload
+  switch (action) {
+    case 'generateContent': {
+      const type = payload.type;
+      if (type && type !== 'quote' && type !== 'tip') return 'Invalid type for generateContent';
+      return null;
+    }
+    case 'generateImageWithQuote': {
+      const quote = payload.quote;
+      if (!quote || typeof quote !== 'string') return 'Missing or invalid quote';
+      if (quote.length > 500) return 'Quote too long (max 500 chars)';
+      return null;
+    }
+    case 'editImage': {
+      const b64 = payload.base64Image;
+      const p = payload.prompt;
+      if (!b64 || typeof b64 !== 'string' || !b64.startsWith('data:')) return 'Invalid base64Image';
+      if (!p || typeof p !== 'string' || p.length > 1000) return 'Invalid prompt';
+      return null;
+    }
+    case 'generateVideoPrompts': {
+      const q = payload.quote;
+      if (!q || typeof q !== 'string' || q.length > 1000) return 'Invalid quote for video prompts';
+      return null;
+    }
+    case 'generateStoryElements': {
+      const t = payload.topic;
+      const n = payload.numScenes;
+      if (!t || typeof t !== 'string' || t.length > 1000) return 'Invalid topic';
+      if (!n || typeof n !== 'number' || n < 1 || n > 12) return 'numScenes must be a number between 1 and 12';
+      return null;
+    }
+    case 'generateImageForScene': {
+      const v = payload.visualsPrompt;
+      if (!v || typeof v !== 'string' || v.length > 2000) return 'Invalid visualsPrompt';
+      return null;
+    }
+    default:
+      return null;
+  }
+};
+
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return jsonResponse(res, 405, { error: 'Method not allowed' });
   }
@@ -25,6 +102,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!action) return jsonResponse(res, 400, { error: 'Missing action in request body' });
 
   if (!ai) return jsonResponse(res, 500, { error: 'Server misconfigured: GENAI_API_KEY is not set' });
+
+  // Rate limiting
+  const ip = getIp(req);
+  // assign different costs for heavier operations
+  const costMap: Record<string, number> = {
+    generateContent: 1,
+    generateImageWithQuote: 6,
+    editImage: 6,
+    generateVideoPrompts: 4,
+    generateStoryElements: 3,
+    generateImageForScene: 5,
+    getAutomationStrategies: 1,
+  };
+  const cost = costMap[action] || 1;
+  if (!allowRequest(ip, cost)) return jsonResponse(res, 429, { error: 'Rate limit exceeded. Try again later.' });
+
+  // Basic input validation
+  const validationError = validatePayload(action, payload);
+  if (validationError) return jsonResponse(res, 400, { error: validationError });
 
   try {
     switch (action) {
@@ -59,12 +155,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let baseMimeType = '';
         let baseImageData = '';
 
-        for (const part of baseImageResponse.candidates[0].content.parts) {
-          if (part.inlineData) {
-            baseImageData = part.inlineData.data || '';
-            baseMimeType = part.inlineData.mimeType || 'image/png';
-            withoutOverlay = `data:${baseMimeType};base64,${baseImageData}`;
-            break;
+        {
+          const parts = baseImageResponse?.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData) {
+              baseImageData = part.inlineData.data || '';
+              baseMimeType = part.inlineData.mimeType || 'image/png';
+              withoutOverlay = `data:${baseMimeType};base64,${baseImageData}`;
+              break;
+            }
           }
         }
 
@@ -83,10 +182,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         let withOverlay = '';
-        for (const part of overlayResponse.candidates[0].content.parts) {
-          if (part.inlineData) {
-            withOverlay = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
+        {
+          const parts = overlayResponse?.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData) {
+              withOverlay = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+              break;
+            }
           }
         }
 
@@ -113,9 +215,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           config: { responseModalities: [Modality.IMAGE] },
         });
 
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            return jsonResponse(res, 200, { edited: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` });
+        {
+          const parts = response?.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData) {
+              return jsonResponse(res, 200, { edited: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` });
+            }
           }
         }
 
