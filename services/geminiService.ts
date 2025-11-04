@@ -2,15 +2,9 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { VideoPrompt, SceneCard, Strategy, ThumbnailData } from '../types';
 import { marked } from 'marked';
 
-// IMPORTANT: Do not expose this key in a production environment.
-// This key should be sourced from a secure environment variable.
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// FIX: Adhering to the coding guidelines to use process.env.API_KEY directly.
+// This resolves the TypeScript error related to 'import.meta.env' and aligns with the project's API key handling strategy.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateContent = async (type: 'quote' | 'tip' = 'quote'): Promise<string> => {
   try {
