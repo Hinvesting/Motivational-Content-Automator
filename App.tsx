@@ -1,11 +1,9 @@
-import React, { useState, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useCallback } from 'react';
+import { ContentGenerator } from './components/ContentGenerator';
+import { ImageEditor } from './components/ImageEditor';
+import { StoryBoardGenerator } from './components/StoryBoardGenerator';
 import { SparklesIcon, PhotoIcon, FilmIcon, VideoCameraIcon } from './components/Icons';
-import { Spinner } from './components/Spinner';
-
-const ContentGenerator = lazy(() => import('./components/ContentGenerator').then(m => ({ default: m.ContentGenerator })));
-const ImageEditor = lazy(() => import('./components/ImageEditor').then(m => ({ default: m.ImageEditor })));
-const StoryBoardGenerator = lazy(() => import('./components/StoryBoardGenerator').then(m => ({ default: m.StoryBoardGenerator })));
-const VideoPromptGenerator = lazy(() => import('./components/VideoPromptGenerator').then(m => ({ default: m.VideoPromptGenerator })));
+import { VideoPromptGenerator } from './components/VideoPromptGenerator';
 
 type Tab = 'generator' | 'editor' | 'video' | 'storyboard';
 
@@ -22,14 +20,12 @@ const App: React.FC = () => {
   const renderActiveTab = useCallback(() => {
     switch (activeTab) {
       case 'generator':
-        return (
-          <ContentGenerator
-            quote={quote}
-            setQuote={setQuote}
-            generatedImages={generatedImages}
-            setGeneratedImages={setGeneratedImages}
-          />
-        );
+        return <ContentGenerator 
+                  quote={quote} 
+                  setQuote={setQuote} 
+                  generatedImages={generatedImages}
+                  setGeneratedImages={setGeneratedImages}
+                />;
       case 'editor':
         return <ImageEditor />;
       case 'video':
@@ -37,14 +33,12 @@ const App: React.FC = () => {
       case 'storyboard':
         return <StoryBoardGenerator />;
       default:
-        return (
-          <ContentGenerator
-            quote={quote}
-            setQuote={setQuote}
-            generatedImages={generatedImages}
-            setGeneratedImages={setGeneratedImages}
-          />
-        );
+        return <ContentGenerator 
+                  quote={quote} 
+                  setQuote={setQuote} 
+                  generatedImages={generatedImages}
+                  setGeneratedImages={setGeneratedImages}
+                />;
     }
   }, [activeTab, quote, generatedImages]);
 
@@ -94,9 +88,7 @@ const App: React.FC = () => {
             </nav>
           </div>
           <div className="p-4 sm:p-6 lg:p-8">
-            <Suspense fallback={<div className="flex items-center justify-center py-20"><Spinner size="large" /></div>}>
-              {renderActiveTab()}
-            </Suspense>
+            {renderActiveTab()}
           </div>
         </div>
       </main>
